@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Theme, GenerationStatus } from '../types';
 import { ColorPicker } from './ColorPicker';
-import { Wand2, Image as ImageIcon, Download, Loader2, Upload, AlertCircle, Video, Sparkles, ChevronDown, ChevronUp, Palette, Smartphone, Layers, X, Sun, Moon, PlayCircle, MonitorPlay, Shuffle } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { Wand2, Image as ImageIcon, Download, Loader2, Upload, AlertCircle, Video, Sparkles, ChevronDown, ChevronUp, Palette, Smartphone, Layers, X, Sun, Moon, PlayCircle, MonitorPlay, Shuffle, FileJson, ImageIcon as ImageIconSmall, FileUp } from 'lucide-react';
 
 interface ThemeControlsProps {
   theme: Theme;
@@ -65,6 +66,7 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
   const [useHighQuality, setUseHighQuality] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('colors');
   const [paletteIndex, setPaletteIndex] = useState(0);
+  const [isExportingImage, setIsExportingImage] = useState(false);
 
   const triggerHaptic = () => {
     if (navigator.vibrate) navigator.vibrate(10);
@@ -83,7 +85,6 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
   };
 
   const handleColorChange = (key: keyof Theme['colors'], value: string) => {
-    // Only haptic on interaction start/end is ideal, but for this simplified input, we'll leave it to browser native feel or add debounced haptic if needed.
     onUpdateTheme({
       colors: {
         ...theme.colors,
@@ -92,7 +93,7 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
     });
   };
 
-  const handleExport = () => {
+  const handleExportJson = () => {
     triggerHaptic();
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(theme, null, 2));
     const downloadAnchorNode = document.createElement('a');
@@ -101,6 +102,36 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+  };
+
+  const handleExportImage = async () => {
+    triggerHaptic();
+    setIsExportingImage(true);
+    const node = document.getElementById('phone-preview-target');
+    if (node) {
+        try {
+            // Increase pixel ratio for high quality
+            const dataUrl = await toPng(node, { 
+                cacheBust: true, 
+                pixelRatio: 2,
+                backgroundColor: 'transparent',
+                style: {
+                    transform: 'scale(1)', // Ensure it captures at 100% scale even if transformed by CSS in view
+                    margin: '0'
+                }
+            });
+            const link = document.createElement('a');
+            link.download = `${theme.name.replace(/\s+/g, '_')}_preview.png`;
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Failed to generate image', err);
+        } finally {
+            setIsExportingImage(false);
+        }
+    } else {
+        setIsExportingImage(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +148,28 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
     }
   };
 
+  const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    triggerHaptic();
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+            const json = JSON.parse(event.target?.result as string);
+            if (json && json.colors) {
+                onUpdateTheme(json);
+            } else {
+                alert("Invalid theme file.");
+            }
+        } catch (err) {
+            console.error("Failed to parse JSON", err);
+            alert("Failed to load theme.");
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   const iconStyles: Theme['iconStyle'][] = ['minimal', 'filled', 'outline', 'neumorphic'];
 
   const themeClasses = {
@@ -130,6 +183,7 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
     buttonGhost: uiMode === 'dark' ? 'bg-white/5 hover:bg-white/10 border-white/5 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700',
     footer: uiMode === 'dark' ? 'bg-black/40 border-white/10' : 'bg-white/50 border-black/5',
     exportBtn: uiMode === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800',
+    secondaryBtn: uiMode === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-200 text-gray-800 hover:bg-gray-300',
   };
 
   const SectionHeader = ({ id, icon: Icon, title }: { id: string, icon: any, title: string }) => (
@@ -386,18 +440,37 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
 
       {/* Footer / Export */}
       <div className={`p-6 pt-4 border-t backdrop-blur-xl ${themeClasses.footer}`}>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center px-1 mb-1">
                 <span className={`text-xs font-medium tracking-wider uppercase ${themeClasses.subText}`}>{theme.name}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded border ${uiMode === 'dark' ? 'text-gray-600 bg-white/5 border-white/5' : 'text-gray-400 bg-black/5 border-black/5'}`}>v2.0</span>
             </div>
-            <button 
-                onClick={handleExport}
-                className={`w-full py-4 font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:-translate-y-0.5 ${themeClasses.exportBtn}`}
-            >
-            <Download size={18} />
-            EXPORT PACKAGE
-            </button>
+            
+            {/* Import Button */}
+            <label className={`w-full py-2.5 text-xs font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${themeClasses.secondaryBtn}`}>
+                <FileUp size={14} />
+                IMPORT THEME FILE (JSON)
+                <input type="file" accept=".json" className="hidden" onChange={handleJsonUpload} />
+            </label>
+
+            {/* Export Buttons */}
+            <div className="flex gap-3">
+                <button 
+                    onClick={handleExportJson}
+                    className={`flex-1 py-3 text-xs font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:-translate-y-0.5 ${themeClasses.secondaryBtn}`}
+                >
+                    <FileJson size={16} />
+                    SAVE JSON
+                </button>
+                <button 
+                    onClick={handleExportImage}
+                    disabled={isExportingImage}
+                    className={`flex-1 py-3 text-xs font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:-translate-y-0.5 ${themeClasses.exportBtn}`}
+                >
+                    {isExportingImage ? <Loader2 className="animate-spin" size={16} /> : <ImageIconSmall size={16} />}
+                    EXPORT IMAGE
+                </button>
+            </div>
         </div>
       </div>
     </div>

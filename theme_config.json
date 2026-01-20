@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "name": "Neon Genesis",
+    "author": "DroidArchitect",
+    "version": "1.0.0",
+    "target_device": "Pixel 9"
+  },
+  "palette": {
+    "primary": "#00ff9d",
+    "secondary": "#7000ff",
+    "accent": "#ff0055",
+    "background": "#0a0a0a",
+    "surface": "#1a1a1a",
+    "text_primary": "#ffffff",
+    "text_secondary": "#a0a0a0"
+  },
+  "typography": {
+    "font_family": "Roboto Mono",
+    "font_size_base": 14,
+    "font_size_header": 24
+  },
+  "layout": {
+    "grid_x": 4,
+    "grid_y": 5,
+    "padding": 16,
+    "dock_enabled": true,
+    "status_bar_visible": true,
+    "icon_shape": "squircle",
+    "icon_size": 60,
+    "dark_mode_enabled": true
+  },
+  "assets": {
+    "wallpaper": "wallpapers/neon_city.png",
+    "icon_pack": "icons/neon_line"
+  }
+}

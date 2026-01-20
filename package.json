@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "*",
     "framer-motion": "^11.0.0",
+    "html-to-image": "^1.11.11",
     "lucide-react": "^0.562.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

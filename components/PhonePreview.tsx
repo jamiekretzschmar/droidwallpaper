@@ -91,8 +91,8 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({ theme, isGenerating 
   );
 
   return (
-    <div className="relative group perspective-1000">
-      {/* Ambient Glow Behind Phone */}
+    <div id="phone-preview-target" className="relative group perspective-1000 p-8">
+      {/* Ambient Glow Behind Phone - Included in capture */}
       <div 
         className="absolute inset-4 blur-3xl opacity-40 transition-colors duration-1000 rounded-[3rem]"
         style={{ backgroundColor: colors.primary }}
