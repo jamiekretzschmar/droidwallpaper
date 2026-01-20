@@ -1,0 +1,5 @@
+{
+  "name": "DroidTheme AI",
+  "description": "An AI-powered Android theme generator. Create custom wallpapers, color palettes, and icon styles instantly using Gemini models, then preview them on a virtual device.",
+  "requestFramePermissions": []
+}
