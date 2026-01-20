@@ -25,10 +25,3 @@ export interface GenerationStatus {
   isGeneratingLiveWallpaper: boolean;
   error: string | null;
 }
-
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-  }
-}
