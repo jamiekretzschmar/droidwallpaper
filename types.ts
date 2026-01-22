@@ -23,5 +23,7 @@ export interface GenerationStatus {
   isGeneratingTheme: boolean;
   isGeneratingWallpaper: boolean;
   isGeneratingLiveWallpaper: boolean;
+  isEditingImage: boolean;
+  isAnimatingImage: boolean;
   error: string | null;
 }

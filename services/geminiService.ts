@@ -99,6 +99,98 @@ export const generateWallpaperImage = async (prompt: string, highQuality: boolea
   }
 };
 
+export const editWallpaperImage = async (base64Image: string, editPrompt: string): Promise<string> => {
+  const ai = getAI();
+  const model = 'gemini-2.5-flash-image';
+  
+  // Extract mime type and base64 data
+  const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) throw new Error("Invalid base64 image format");
+  const mimeType = matches[1];
+  const data = matches[2];
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: data,
+              mimeType: mimeType,
+            },
+          },
+          {
+            text: editPrompt + " Modify this image according to the request. Maintain the 9:16 aspect ratio.",
+          },
+        ],
+      },
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+    
+    throw new Error("No image data found in response");
+  } catch (error) {
+    console.error("Error editing image:", error);
+    throw error;
+  }
+};
+
+export const generateVideoFromImage = async (base64Image: string, prompt: string): Promise<string> => {
+  const ai = getAI();
+  const model = 'veo-3.1-fast-generate-preview';
+
+  // Extract mime type and base64 data
+  const matches = base64Image.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) throw new Error("Invalid base64 image format");
+  const mimeType = matches[1];
+  const data = matches[2];
+
+  try {
+    let operation = await ai.models.generateVideos({
+      model,
+      prompt: prompt || "Animate this scene with cinematic movement",
+      image: {
+        imageBytes: data,
+        mimeType: mimeType,
+      },
+      config: {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: '9:16'
+      }
+    });
+
+    while (!operation.done) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      operation = await ai.operations.getVideosOperation({ operation: operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+      throw new Error("Video generation failed: No download URI returned.");
+    }
+
+    const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+    }
+
+    const videoBlob = await videoResponse.blob();
+    return URL.createObjectURL(videoBlob);
+  } catch (error) {
+    console.error("Error animating image with Veo:", error);
+    throw error;
+  }
+};
+
 export const generateLiveWallpaperVideo = async (prompt: string): Promise<string> => {
   const ai = getAI();
   const model = "veo-3.1-fast-generate-preview";

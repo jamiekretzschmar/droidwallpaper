@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Theme, GenerationStatus } from '../types';
 import { ColorPicker } from './ColorPicker';
 import { toPng } from 'html-to-image';
-import { Wand2, Image as ImageIcon, Download, Loader2, Upload, AlertCircle, Video, Sparkles, ChevronDown, ChevronUp, Palette, Smartphone, Layers, X, Sun, Moon, PlayCircle, MonitorPlay, Shuffle, FileJson, ImageIcon as ImageIconSmall, FileUp } from 'lucide-react';
+import { Wand2, Image as ImageIcon, Download, Loader2, Upload, AlertCircle, Video, Sparkles, ChevronDown, ChevronUp, Palette, Smartphone, Layers, X, Sun, Moon, PlayCircle, MonitorPlay, Shuffle, FileJson, ImageIcon as ImageIconSmall, FileUp, Edit3, Film } from 'lucide-react';
 
 interface ThemeControlsProps {
   theme: Theme;
@@ -12,6 +12,8 @@ interface ThemeControlsProps {
   onGenerateTheme: (prompt: string) => void;
   onGenerateWallpaper: (highQuality: boolean) => void;
   onGenerateLiveWallpaper: () => void;
+  onEditWallpaper: (prompt: string) => void;
+  onAnimateImage: () => void;
   onClose?: () => void;
   onToggleUiMode: () => void;
 }
@@ -59,10 +61,13 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
   onGenerateTheme,
   onGenerateWallpaper,
   onGenerateLiveWallpaper,
+  onEditWallpaper,
+  onAnimateImage,
   onClose,
   onToggleUiMode,
 }) => {
   const [prompt, setPrompt] = useState('');
+  const [editPrompt, setEditPrompt] = useState('');
   const [useHighQuality, setUseHighQuality] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('colors');
   const [paletteIndex, setPaletteIndex] = useState(0);
@@ -383,6 +388,60 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
                             </button>
                         </div>
                         
+                        {/* Nano Banana Image Editing */}
+                        <div className="space-y-2">
+                             <label className={`text-[10px] uppercase tracking-widest font-bold ml-1 ${themeClasses.subText}`}>Edit Image (Gemini 2.5 Flash)</label>
+                             <div className="relative">
+                                <input 
+                                    type="text"
+                                    value={editPrompt}
+                                    onChange={(e) => setEditPrompt(e.target.value)}
+                                    placeholder="Add retro filter, remove person..."
+                                    className={`w-full py-2.5 px-4 pr-12 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-purple-500 transition-colors ${themeClasses.inputBg}`}
+                                />
+                                <button
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        onEditWallpaper(editPrompt);
+                                    }}
+                                    disabled={status.isEditingImage || !editPrompt.trim() || !theme.wallpaperImage}
+                                    className="absolute right-2 top-1.5 p-1.5 text-purple-400 hover:text-purple-300 disabled:opacity-0"
+                                >
+                                    {status.isEditingImage ? <Loader2 className="animate-spin" size={16} /> : <Edit3 size={16} />}
+                                </button>
+                             </div>
+                        </div>
+
+                        {/* Image to Video Animation (Veo) */}
+                        <button
+                            onClick={() => {
+                                triggerHaptic();
+                                onAnimateImage();
+                            }}
+                            disabled={status.isAnimatingImage || !theme.wallpaperImage}
+                            className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 border transition-all group disabled:opacity-50 ${themeClasses.buttonGhost} bg-gradient-to-r from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10`}
+                        >
+                            {status.isAnimatingImage ? <Loader2 className="animate-spin text-purple-400" size={18} /> : <Film size={18} className="text-purple-400 group-hover:scale-110 transition-transform" />}
+                            <span className="text-xs font-bold tracking-wide">Animate Image with Veo</span>
+                        </button>
+
+                         {/* Wallpaper Actions (Download) */}
+                         {theme.wallpaperImage && theme.activeWallpaperMode === 'image' && (
+                             <button
+                                onClick={() => {
+                                    triggerHaptic();
+                                    const link = document.createElement('a');
+                                    link.href = theme.wallpaperImage!;
+                                    link.download = `wallpaper_${theme.id}.png`;
+                                    link.click();
+                                }}
+                                className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 border transition-all group ${themeClasses.buttonGhost}`}
+                            >
+                                <Download size={16} />
+                                <span className="text-xs font-medium">Save Wallpaper (PNG)</span>
+                            </button>
+                        )}
+
                         {/* New Preview Controls for Live Wallpaper */}
                         {theme.liveWallpaperUrl && (
                              <div className="flex gap-2">
@@ -468,7 +527,7 @@ export const ThemeControls: React.FC<ThemeControlsProps> = ({
                     className={`flex-1 py-3 text-xs font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:-translate-y-0.5 ${themeClasses.exportBtn}`}
                 >
                     {isExportingImage ? <Loader2 className="animate-spin" size={16} /> : <ImageIconSmall size={16} />}
-                    EXPORT IMAGE
+                    EXPORT PREVIEW (PNG)
                 </button>
             </div>
         </div>

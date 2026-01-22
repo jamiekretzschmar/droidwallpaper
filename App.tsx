@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PhonePreview } from './components/PhonePreview';
 import { ThemeControls } from './components/ThemeControls';
 import { Theme, GenerationStatus } from './types';
-import { generateThemeData, generateWallpaperImage, generateLiveWallpaperVideo } from './services/geminiService';
+import { generateThemeData, generateWallpaperImage, generateLiveWallpaperVideo, editWallpaperImage, generateVideoFromImage } from './services/geminiService';
 import { Menu } from 'lucide-react';
 
 // Initial default theme
@@ -32,9 +32,15 @@ const App: React.FC = () => {
     isGeneratingTheme: false,
     isGeneratingWallpaper: false,
     isGeneratingLiveWallpaper: false,
+    isEditingImage: false,
+    isAnimatingImage: false,
     error: null
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const triggerHaptic = (intensity: number = 10) => {
+    if (navigator.vibrate) navigator.vibrate(intensity);
+  };
 
   const ensureApiKey = async (): Promise<boolean> => {
     try {
@@ -69,6 +75,7 @@ const App: React.FC = () => {
   };
 
   const handleGenerateTheme = async (prompt: string) => {
+    triggerHaptic(20);
     setStatus(prev => ({ ...prev, isGeneratingTheme: true, error: null }));
     
     try {
@@ -79,8 +86,6 @@ const App: React.FC = () => {
         ...generatedData,
         colors: { ...theme.colors, ...generatedData.colors },
         id: crypto.randomUUID(),
-        // Keep existing wallpaper if we want, or reset. Let's reset image but keep video if exists? 
-        // Usually a new theme implies new wallpaper.
         wallpaperImage: undefined, 
         liveWallpaperUrl: undefined,
         activeWallpaperMode: 'image'
@@ -100,6 +105,7 @@ const App: React.FC = () => {
   };
 
   const handleGenerateWallpaper = async (highQuality: boolean, promptOverride?: string) => {
+    triggerHaptic(10);
     const promptToUse = promptOverride || theme.wallpaperPrompt;
     if (!promptToUse) {
         setStatus(prev => ({ ...prev, error: "No wallpaper prompt available." }));
@@ -111,7 +117,6 @@ const App: React.FC = () => {
     setStatus(prev => ({ ...prev, isGeneratingWallpaper: true, error: null }));
     try {
       const base64Image = await generateWallpaperImage(promptToUse, highQuality);
-      // We do NOT clear liveWallpaperUrl here, allowing the user to switch back if they want.
       setTheme(prev => ({ 
           ...prev, 
           wallpaperImage: base64Image, 
@@ -124,7 +129,53 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEditWallpaper = async (editPrompt: string) => {
+    triggerHaptic(10);
+    if (!theme.wallpaperImage) {
+      setStatus(prev => ({ ...prev, error: "No image to edit." }));
+      return;
+    }
+    
+    setStatus(prev => ({ ...prev, isEditingImage: true, error: null }));
+    try {
+      const editedBase64 = await editWallpaperImage(theme.wallpaperImage, editPrompt);
+      setTheme(prev => ({ 
+          ...prev, 
+          wallpaperImage: editedBase64, 
+          activeWallpaperMode: 'image' 
+      }));
+    } catch (err: any) {
+      handleError(err, "Image editing failed.");
+    } finally {
+      setStatus(prev => ({ ...prev, isEditingImage: false }));
+    }
+  };
+
+  const handleAnimateImage = async () => {
+    triggerHaptic(20);
+    if (!theme.wallpaperImage) {
+      setStatus(prev => ({ ...prev, error: "No image to animate." }));
+      return;
+    }
+
+    await ensureApiKey();
+    setStatus(prev => ({ ...prev, isAnimatingImage: true, error: null }));
+    try {
+      const videoUrl = await generateVideoFromImage(theme.wallpaperImage, theme.wallpaperPrompt);
+      setTheme(prev => ({ 
+          ...prev, 
+          liveWallpaperUrl: videoUrl,
+          activeWallpaperMode: 'video'
+      }));
+    } catch (err: any) {
+      handleError(err, "Animation failed.");
+    } finally {
+      setStatus(prev => ({ ...prev, isAnimatingImage: false }));
+    }
+  };
+
   const handleGenerateLiveWallpaper = async () => {
+    triggerHaptic(20);
     if (!theme.wallpaperPrompt) {
         setStatus(prev => ({ ...prev, error: "No prompt available for video." }));
         return;
@@ -152,11 +203,11 @@ const App: React.FC = () => {
   };
 
   const toggleUiMode = () => {
+    triggerHaptic(20);
     setUiMode(prev => prev === 'dark' ? 'light' : 'dark');
-    if (navigator.vibrate) navigator.vibrate(20);
   };
 
-  const isWorking = status.isGeneratingTheme || status.isGeneratingWallpaper || status.isGeneratingLiveWallpaper;
+  const isWorking = status.isGeneratingTheme || status.isGeneratingWallpaper || status.isGeneratingLiveWallpaper || status.isEditingImage || status.isAnimatingImage;
 
   return (
     <div className={`flex h-screen w-full overflow-hidden relative font-sans transition-colors duration-500 ${uiMode === 'dark' ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'}`}>
@@ -179,8 +230,8 @@ const App: React.FC = () => {
       {/* Mobile Hamburger Button */}
       <button 
         onClick={() => {
+            triggerHaptic(10);
             setIsMobileMenuOpen(true);
-            if (navigator.vibrate) navigator.vibrate(10);
         }}
         className={`absolute top-6 left-6 z-30 p-3 backdrop-blur-md border rounded-full md:hidden shadow-xl active:scale-95 transition-transform ${uiMode === 'dark' ? 'bg-white/10 border-white/10 text-white' : 'bg-black/5 border-black/5 text-black'}`}
       >
@@ -202,7 +253,12 @@ const App: React.FC = () => {
             onGenerateTheme={handleGenerateTheme}
             onGenerateWallpaper={(hq) => handleGenerateWallpaper(hq)}
             onGenerateLiveWallpaper={handleGenerateLiveWallpaper}
-            onClose={() => setIsMobileMenuOpen(false)}
+            onEditWallpaper={handleEditWallpaper}
+            onAnimateImage={handleAnimateImage}
+            onClose={() => {
+              triggerHaptic(10);
+              setIsMobileMenuOpen(false);
+            }}
             onToggleUiMode={toggleUiMode}
         />
         
